@@ -144,7 +144,6 @@ begin
 
         end function next_state;
 
-
         signal current_state : StateType := reset_state;
         signal cordic_recursive_instance_in_ready : std_logic;
 
