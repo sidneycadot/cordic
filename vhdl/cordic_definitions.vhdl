@@ -2,36 +2,40 @@
 library ieee;
 
 use ieee.std_logic_1164.all;
-use ieee.numeric_std.all;
-use ieee.math_real.all;
 use ieee.fixed_pkg.all;
 
 package cordic_definitions is
 
-	-- Type and operations for "angle".
+	constant NUMBER_OF_STAGES           : natural := 32; -- Number of CORDIC pipelining stages.
+	constant ANGLE_BITS                 : natural := 32; -- Angle resolution.
+	constant XY_SCALAR_DENOMINATOR_BITS : natural := 32; -- Determines sine/cosine resolution.
 
-	constant ANGLE_BITS : natural := 32;
+	-- Representation of positive and negative angles.
 
     subtype angle_type is sfixed(-1 downto -ANGLE_BITS);
 
-    constant INVALID_ANGLE : angle_type := (others => '0');
+    constant ZERO_ANGLE : angle_type := (others => '0');
 
     function to_angle(angle: in real) return angle_type;
 
-    subtype xy_component_type is sfixed(2 downto -32);
+    -- Representation of sine and cosine values.
 
-    function to_xy_component(value: in real) return xy_component_type;
+    subtype xy_scalar_type is sfixed(1 downto -XY_SCALAR_DENOMINATOR_BITS);
 
-    constant INVALID_XY_VALUE : xy_component_type := (others => '0');
+    function to_xy_scalar(value: in real) return xy_scalar_type;
+
+    constant ZERO_XY_SCALAR : xy_scalar_type := (others => '0');
+
+    -- Representation of scaled (cosine, sine) vectors.
 
     type xy_vector_type is record
-        	x : xy_component_type;
-        	y : xy_component_type;
+        	x : xy_scalar_type; -- Cosine
+        	y : xy_scalar_type; -- Sine
         end record xy_vector_type;
 
     function to_xy_vector(x: in real; y: in real) return xy_vector_type;
 
-    constant INVALID_XY_VECTOR : xy_vector_type := (x => INVALID_XY_VALUE, y => INVALID_XY_VALUE);
+    constant ZERO_XY_VECTOR : xy_vector_type := (x => ZERO_XY_SCALAR, y => ZERO_XY_SCALAR);
 
 end package cordic_definitions;
 
@@ -43,14 +47,14 @@ package body cordic_definitions is
 		return to_sfixed(angle, angle_type'high, angle_type'low);
 	end function to_angle;
 
-	function to_xy_component(value: in real) return xy_component_type is
+	function to_xy_scalar(value: in real) return xy_scalar_type is
 	begin
-		return to_sfixed(value, xy_component_type'high, xy_component_type'low);
-	end function to_xy_component;
+		return to_sfixed(value, xy_scalar_type'high, xy_scalar_type'low);
+	end function to_xy_scalar;
 
 	function to_xy_vector(x: in real; y: in real) return xy_vector_type is
 	begin
-		return (to_xy_component(x), to_xy_component(y));
+		return (to_xy_scalar(x), to_xy_scalar(y));
 	end function to_xy_vector;
 
 end package body cordic_definitions;

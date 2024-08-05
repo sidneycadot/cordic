@@ -3,7 +3,6 @@ library ieee;
 
 use ieee.std_logic_1164.all;
 use ieee.math_real.all;
-use ieee.numeric_std.all;
 use ieee.fixed_pkg.all;
 
 use std.textio.all;
@@ -11,9 +10,6 @@ use std.textio.all;
 use work.cordic_definitions.all;
 
 entity cordic is
-    generic (
-        num_stages : positive
-    );
     port (
         CLK       : in  std_logic;
         RESET     : in  std_logic;
@@ -33,11 +29,14 @@ end entity cordic;
 architecture arch of cordic is
 
 function cordic_initial_radius(n: in natural) return real is
+
 -- Each stage of the CORDIC has a gain equal to 1 / cos(arctan(0.5 ** k)), where k is the stage order.
 -- This gain is > 1. In order to end up with a vector on the unit circle, we need to start with a vector
 -- that is closer to the origin. This function calculates the radius of that initial vector.
+
 variable product : real := 1.0;
 variable q : real := 1.0;
+
 begin
     for k in 0 to n - 1 loop
         product := product * (1.0 + q);
@@ -46,7 +45,7 @@ begin
     return 1.0 / sqrt(product);
 end function cordic_initial_radius;
 
-constant initial_radius : real := cordic_initial_radius(num_stages);
+constant initial_radius : real := cordic_initial_radius(NUMBER_OF_STAGES);
 
 type StateType is record
         in_ready            : std_logic;
@@ -61,10 +60,10 @@ type StateType is record
 constant reset_state : StateType := (
         in_ready            => '1',
         --
-        buf_angle           => INVALID_ANGLE,
+        buf_angle           => ZERO_ANGLE,
         --
-        out_angle_remaining => INVALID_ANGLE,
-        out_xy              => INVALID_XY_VECTOR,
+        out_angle_remaining => ZERO_ANGLE,
+        out_xy              => ZERO_XY_VECTOR,
         out_valid           => '0'
     );
 
@@ -97,7 +96,7 @@ begin
             state.out_valid := '0';
         end if;
 
-        -- Process input if possible.
+        -- Process buffered value if/when we can push it out.
 
         if state.in_ready = '0' and state.out_valid = '0' then
 
@@ -131,8 +130,7 @@ begin
 
     cordic_recursive_instance : entity work.cordic_recursive
         generic map (
-            stage => 0,
-            num_stages => num_stages
+            stage => 0
         )
         port map (
             CLK                 => CLK,

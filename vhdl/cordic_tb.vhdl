@@ -3,8 +3,6 @@ library ieee;
 
 use ieee.std_logic_1164.all;
 use ieee.math_real.all;
-use ieee.math_complex.all;
-use ieee.numeric_std.all;
 use ieee.fixed_pkg.all;
 
 use std.textio.all;
@@ -12,6 +10,7 @@ use std.textio.all;
 use work.cordic_definitions.all;
 
 entity cordic_tb is
+   -- Testbench entry has no ports.
 end entity cordic_tb;
 
 
@@ -27,20 +26,20 @@ signal xy_valid : std_logic;
 
 begin
 
-    process is
-    variable v : angle_type;
+    test_driver : process is
+    variable test_angle : angle_type;
     begin
-    	for cycle in 1 to 50 loop
+    	for cycle in 1 to 200 loop
 
         	wait for 10 ns;
 
         	if cycle >= 10 and cycle <= 34 then
-        	    v := to_angle((real((cycle - 10) mod 24) / 24.0 + 0.5) mod 1.0 - 0.5);
-        	    write(output, "[" & to_string(cycle) & "] request: " & " " & to_string(to_real(v)) & LF);
-        	    angle <= v;
+        	    test_angle := to_angle((real((cycle - 10) mod 24) / 24.0 + 0.5) mod 1.0 - 0.5);
+        	    write(output, "[" & to_string(cycle) & "] request: " & " " & to_string(to_real(test_angle)) & LF);
+        	    angle <= test_angle;
         	    angle_valid <= '1';
         	else
-        	    angle <= INVALID_ANGLE;
+        	    angle <= ZERO_ANGLE;
         	    angle_valid <= '0';
         	end if;
 
@@ -56,12 +55,9 @@ begin
 
         end loop;
         wait;
-    end process;
+    end process test_driver;
 
     cordic_instance : entity work.cordic
-        generic map (
-            num_stages => 32
-        )
         port map (
             CLK         => CLK,
             RESET       => '0',

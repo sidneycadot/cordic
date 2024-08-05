@@ -3,7 +3,6 @@ library ieee;
 
 use ieee.std_logic_1164.all;
 use ieee.math_real.all;
-use ieee.numeric_std.all;
 use ieee.fixed_pkg.all;
 
 use work.cordic_definitions.all;
@@ -12,8 +11,7 @@ use work.cordic_definitions.all;
 entity cordic_recursive is
 
     generic (
-        stage : natural;
-        num_stages : natural
+        stage : natural
     );
     port (
         CLK                 : in  std_logic;
@@ -51,11 +49,11 @@ type StateType is record
 constant reset_state : StateType := (
         in_ready            => '1',
         --
-        buf_angle_remaining => INVALID_ANGLE,
-        buf_xy              => INVALID_XY_VECTOR,
+        buf_angle_remaining => ZERO_ANGLE,
+        buf_xy              => ZERO_XY_VECTOR,
         --
-        out_angle_remaining => INVALID_ANGLE,
-        out_xy              => INVALID_XY_VECTOR,
+        out_angle_remaining => ZERO_ANGLE,
+        out_xy              => ZERO_XY_VECTOR,
         out_valid           => '0'
     );
 
@@ -69,7 +67,6 @@ function next_state(
         ) return StateType is
 
 variable state : StateType := current_state;
-
 
 begin
 
@@ -125,38 +122,36 @@ begin
 
 end function next_state;
 
-signal current_state : StateType := reset_state;
-
-signal client_ready : std_logic;
 
 begin
 
-    current_state <= next_state(current_state, RESET, IN_VALID, IN_ANGLE_REMAINING, IN_XY, client_ready) when rising_edge(CLK);
-
-    IN_READY <= current_state.in_ready;
-
-    gen: if stage = num_stages - 1 generate
+    gen: if stage = NUMBER_OF_STAGES generate
         begin
 
-            -- We have a single stage.
-            -- Publish the output signals of the stage as outputs.
-            -- The "client_ready" signal to the stage logic is provided by the incoming entity signal OUT_READY.
+            -- The base case of the recursion.
+            -- Here, we merely connect the input and output signals.
 
-            OUT_ANGLE_REMAINING <= current_state.out_angle_remaining;
-            OUT_XY              <= current_state.out_xy;
-            OUT_VALID           <= current_state.out_valid;
+            IN_READY            <= OUT_READY;
+            OUT_ANGLE_REMAINING <= IN_ANGLE_REMAINING;
+            OUT_XY              <= IN_XY;
+            OUT_VALID           <= IN_VALID;
 
-            client_ready <= OUT_READY;
         end;
     else generate
+
+        signal current_state : StateType := reset_state;
+        signal cordic_recursive_instance_in_ready : std_logic;
+
         begin
 
-            -- Our stage's output recursively connects to a smaller 'cordic_recursive' instance.
+            -- We define a single stage and connect it to a smaller 'cordic_recursive' instance.
 
-            recursive_instance : entity work.cordic_recursive
+            current_state <= next_state(current_state, RESET, IN_VALID, IN_ANGLE_REMAINING, IN_XY, cordic_recursive_instance_in_ready) when rising_edge(CLK);
+            IN_READY <= current_state.in_ready;
+
+            cordic_recursive_instance : entity work.cordic_recursive
                 generic map (
-                    stage      => stage + 1,
-                    num_stages => num_stages
+                    stage => stage + 1
                 )
                 port map (
                     CLK                 => CLK,
@@ -165,14 +160,13 @@ begin
                     IN_ANGLE_REMAINING  => current_state.out_angle_remaining,
                     IN_XY               => current_state.out_xy,
                     IN_VALID            => current_state.out_valid,
-                    IN_READY            => client_ready,
+                    IN_READY            => cordic_recursive_instance_in_ready,
                     --
                     OUT_ANGLE_REMAINING => OUT_ANGLE_REMAINING,
                     OUT_XY              => OUT_XY,
                     OUT_VALID           => OUT_VALID,
                     OUT_READY           => OUT_READY
                 );
-
         end;
     end generate gen;
 
